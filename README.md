@@ -2,6 +2,8 @@
 
 Liquid template language tools - heavily influenced by the unpublished [liquid haskell lib](https://github.com/pbrisbin/liquid).
 
+[Shopify guide](https://help.shopify.com/themes/liquid/basics) - note - there are some language features missing and some extra type-sanity in this lib.
+
 ### Building & Testing
 
 ```
