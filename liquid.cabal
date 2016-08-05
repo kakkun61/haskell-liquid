@@ -11,11 +11,14 @@ homepage:              https://github.com/projectorhq/liquid
 build-type:            Simple
 category:              Template
 cabal-version:         >= 1.10
+stability:             Experimental
 description:
   This package should be used by importing Text.Liquid.
   Sundry nested packages can be used freely for other functionality. See the readme on Github for more details on usage.
 
 library
+  default-language:    Haskell2010
+
   ghc-options:         -Wall -O2
 
   hs-source-dirs:      src
