@@ -1,5 +1,5 @@
 name:                  liquid
-version:               0.1.0
+version:               0.1.0.1
 synopsis:              Liquid template language library
 description:           Parser, interpreter and assorted functions for the Liquid template language
 license:               BSD3
@@ -16,7 +16,7 @@ description:
   Sundry nested packages can be used freely for other functionality. See the readme on Github for more details on usage.
 
 library
-  ghc-options:         -Wall, -O2
+  ghc-options:         -Wall -O2
 
   hs-source-dirs:      src
 
