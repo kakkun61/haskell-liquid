@@ -7,7 +7,7 @@ license-file:          LICENSE
 copyright:             Copyright (C) 2015-2016 Orphid, Inc.
 author:                James R. Thompson <james@projector.com>
 maintainer:            James R. Thompson <jamesthompsonoxford@gmail.com>
-homepage:              https://github.com/projectorhq/liquid
+homepage:              https://github.com/projectorhq/haskell-liquid
 build-type:            Simple
 category:              Template
 cabal-version:         >= 1.10
