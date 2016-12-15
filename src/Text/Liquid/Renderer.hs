@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Text.Liquid.Renderer where
 
 import           Control.Applicative
@@ -19,10 +21,12 @@ import           Text.Liquid.Helpers
 import           Text.Liquid.Parser   (parseTemplate)
 import           Text.Liquid.Types
 
+
 -- | Interpret function - for use in testing the lib
-interpretWithJson :: Value -- ^ JSON context
-                  -> Text  -- ^ Raw template
-                  -> Rendering Text
+interpretWithJson
+  :: Value -- ^ JSON context
+  -> Text  -- ^ Raw template
+  -> Rendering Text
 interpretWithJson ctx template = case parseRes of
     (Fail brokenPart errCtxs _) ->
       let (ok, bad) = T.breakOn brokenPart template
@@ -32,16 +36,18 @@ interpretWithJson ctx template = case parseRes of
   where parseRes = parseTemplate template
 
 -- | Interpret the raw data if it is ok
-interpret :: Value
-          -> [Expr]
-          -> Rendering Text
+interpret
+  :: Value
+  -> [Expr]
+  -> Rendering Text
 interpret ctx template =
   foldl (<>) T.empty <$> sequenceA (renderTemplate ctx <$> template)
 
 -- | Main template block rendering fn
-renderTemplate :: Value
-               -> Expr
-               -> Rendering Text
+renderTemplate
+  :: Value
+  -> Expr
+  -> Rendering Text
 
 -- | Rendering types
 renderTemplate j (Output f@(Filter _ _))      = applyFilter j f
@@ -113,10 +119,11 @@ renderTemplate _ _ =
   _Failure # [ LiquidError "Template rendering critical error!" ]
 
 -- | Evaluate predicate result and render
-evalLogic :: Value          -- ^ JSON Context
-          -> Rendering Bool -- ^ Predicate / logical expression result
-          -> [Expr]         -- ^ Expressions to evaluate if true
-          -> Rendering Text
+evalLogic
+  :: Value          -- ^ JSON Context
+  -> Rendering Bool -- ^ Predicate / logical expression result
+  -> [Expr]         -- ^ Expressions to evaluate if true
+  -> Rendering Text
 evalLogic j (AccSuccess True) ts =
     foldl (<>) T.empty <$> tevals
   where tevals = sequenceA $ (renderTemplate j <$> ts)
@@ -125,10 +132,11 @@ evalLogic _ failure _            =
   second (const T.empty) failure
 
 -- | Evaluate case logic
-evalCaseLogic :: Value
-              -> Rendering Value -- ^ Extracted JSON value for case match
-              -> [(Expr, Expr)]
-              -> Rendering Text
+evalCaseLogic
+  :: Value
+  -> Rendering Value -- ^ Extracted JSON value for case match
+  -> [(Expr, Expr)]
+  -> Rendering Text
 evalCaseLogic _ _ []                                      =
   pure T.empty
 evalCaseLogic j v ((Num n, TrueStatements ts):xs)         =
@@ -149,9 +157,10 @@ evalCaseLogic _ v _                                       =
   _Failure # [ RenderingFailure "Impossible case pattern evaluation" ] <*> v
 
 -- | Render a renderable Expr as Text
-renderText :: Value
-           -> Expr
-           -> Rendering Text
+renderText
+  :: Value
+  -> Expr
+  -> Rendering Text
 renderText _ Noop            = pure $ T.empty
 renderText _ (RawText t)     = pure t
 renderText _ (Num n)         = pure $ formatNum n
@@ -162,8 +171,9 @@ renderText _ e               =
   _Failure # [ RenderingFailure $ "Can't render this type: " <> (renderExpr e) ]
 
 -- | Format variable as either number or Text
-numberOrTextFormat :: Rendering Value
-                   -> Rendering Text
+numberOrTextFormat
+  :: Rendering Value
+  -> Rendering Text
 numberOrTextFormat rv =
     fromMaybe (AccFailure [err]) (s <|> n)
   where s = sequenceA $ preview _String <$> rv
@@ -171,9 +181,10 @@ numberOrTextFormat rv =
         err = NotAStringOrNumberJsonValue rv --TODO build better error
 
 -- | Eval key present & not null
-evalKeyTruthiness :: Value
-                  -> Expr
-                  -> Rendering Bool
+evalKeyTruthiness
+  :: Value
+  -> Expr
+  -> Rendering Bool
 evalKeyTruthiness j (Variable i@(ObjectIndex "user" :| _)) =
   maybe (pure False) (const (pure True)) (j ^? buildLens i.nonNull)
 evalKeyTruthiness j (Variable i@(ObjectIndex "event" :| _)) =
@@ -184,9 +195,10 @@ evalKeyTruthiness _ _            =
   _Failure # [ RenderingFailure "Can't evalulate if key on anything other than json context variables" ]
 
 -- | Eval truth
-evalTruthiness :: Value
-               -> Expr
-               -> Rendering Bool
+evalTruthiness
+  :: Value
+  -> Expr
+  -> Rendering Bool
 evalTruthiness j (Truthy (Variable i))                     =
   case extractValue j i of
     (AccSuccess v) -> maybe (pure True) pure (v ^? _Bool)
@@ -219,10 +231,11 @@ evalTruthiness _ err                                       =
   _Failure # [ ImpossibleTruthEvaluation err ]
 
 -- | Check if the variable contains the thing on the rhs
-containsCheck :: Value
-              -> Expr
-              -> Expr
-              -> Rendering Bool
+containsCheck
+  :: Value
+  -> Expr
+  -> Expr
+  -> Rendering Bool
 containsCheck j (Variable l) (QuoteString r) = elem r <$> v
   where v = getStringsFromArray <$> extractValue j l
 containsCheck j (Variable l) (Num r)         = elem r <$> v
@@ -233,24 +246,27 @@ containsCheck _ _ _                          =
   _Failure # [ LiquidError "Contains checks can only be performed on arrays (i.e. Variables)" ]
 
 -- | Aggregate all the strings in the underlying array - if present
-getStringsFromArray :: Value
-                    -> [Text]
+getStringsFromArray
+  :: Value
+  -> [Text]
 getStringsFromArray v =
   v ^.. values . _String
 
 -- | Aggregate all the numbers in the underlying array - if present
-getNumbersFromArray :: Value
-                    -> [Scientific]
+getNumbersFromArray
+  :: Value
+  -> [Scientific]
 getNumbersFromArray v =
   v ^.. values . _Number
 
 -- | Truth evaluation with variables
 --   ONLY numberic comparison allowed, text comparisons not supported
-varComparisons :: Value
-               -> (Maybe Scientific -> Maybe Scientific -> Bool)
-               -> Expr
-               -> Expr
-               -> Rendering Bool
+varComparisons
+  :: Value
+  -> (Maybe Scientific -> Maybe Scientific -> Bool)
+  -> Expr
+  -> Expr
+  -> Rendering Bool
 varComparisons j op (Num l)      (Variable r)         = op (pure l) <$> vr
   where vr = preview _Number <$> extractValue j r
 varComparisons j op (Variable l) (Num r)              = op <$> vl <*> (pure $ pure r)
@@ -271,10 +287,11 @@ varComparisons _ _  l            r            =
   _Failure # [ ImpossibleComparison (renderExpr l) (renderExpr r) ]
 
 -- | Evaluate a binary comparison
-bothSidesEqual :: Value -- ^ JSON context
-               -> Expr  -- ^ lhs
-               -> Expr  -- ^ rhs
-               -> Rendering Bool
+bothSidesEqual
+  :: Value -- ^ JSON context
+  -> Expr  -- ^ lhs
+  -> Expr  -- ^ rhs
+  -> Rendering Bool
 bothSidesEqual _ l r | l == r                      = pure True
 bothSidesEqual _ (QuoteString q1) (QuoteString q2) = pure $ q1 == q2
 bothSidesEqual j (Variable xs) (QuoteString q)     = (==) (pure q) <$> vl
@@ -309,9 +326,10 @@ bothSidesEqual _ l r                               =
   _Failure # [ ImpossibleComparison (renderExpr l) (renderExpr r) ]
 
 -- | Fold over multiple layers of variable syntax, and deal with future event nesting
-extractValue :: Value
-             -> JsonVarPath
-             -> Rendering Value
+extractValue
+  :: Value
+  -> JsonVarPath
+  -> Rendering Value
 extractValue j xz@(ObjectIndex "user" :| _) =
   case j ^? buildLens xz of
     Just v  -> _Success # v
@@ -320,16 +338,17 @@ extractValue j xz@(ObjectIndex "event" :| _) =
   case (j ^? buildLens xz) of
     Just v  -> _Success # v
     Nothing -> _Failure # [ JsonValueNotFound xz ]
-extractValue j xz = -- ^ If template doesn't have context yet - add it after first attempting raw key
+extractValue j xz = -- If template doesn't have context yet - add it after first attempting raw key
   case (j ^? buildLens xz) <|>
        (j ^? buildLens (ObjectIndex "event" <| xz)) of
     Just v  -> _Success # v
     Nothing -> _Failure # [ JsonValueNotFound xz ]
 
 -- | Apply a filter to the input
-applyFilter :: Value
-            -> Expr
-            -> Rendering Text
+applyFilter
+  :: Value
+  -> Expr
+  -> Rendering Text
 applyFilter _ (Filter (QuoteString q) [])      = pure q
 applyFilter _ (Filter (QuoteString q) (c:fcs)) =
   case applyFilterM q c >>= \i -> foldM' applyFilterM i fcs of
@@ -344,16 +363,18 @@ applyFilter _ _                            =
   _Failure # [ LiquidError "Filter Bug!" ]
 
 -- | Apply a chain of functions from l -> r
-applyCellsM :: Value
-            -> [Expr]
-            -> Maybe Text
+applyCellsM
+  :: Value
+  -> [Expr]
+  -> Maybe Text
 applyCellsM v []      = v ^? _String
 applyCellsM v (c:fcs) = arrayFilterM v c >>= \i -> foldM' applyFilterM i fcs
 
 -- | Apply a filter
-applyFilterM :: Text -- ^ LHS
-             -> Expr -- ^ FilterCell
-             -> Maybe Text
+applyFilterM
+  :: Text -- ^ LHS
+  -> Expr -- ^ FilterCell
+  -> Maybe Text
 applyFilterM i (FilterCell "toUpper" []) = pure $ T.toUpper i
 applyFilterM i (FilterCell "toLower" []) = pure $ T.toLower i
 applyFilterM i (FilterCell "toTitle" []) = pure $ T.toTitle i
@@ -363,18 +384,20 @@ applyFilterM i (FilterCell "replace" [QuoteString find,
 applyFilterM _ _                         = Nothing
 
 -- | Apply the array filter if the targeted value is an array, otherwise the reg filter
-arrayFilterM :: Value
-             -> Expr
-             -> Maybe Text
+arrayFilterM
+  :: Value
+  -> Expr
+  -> Maybe Text
 arrayFilterM v fc | isn't _Nothing $ st = st >>= (flip applyFilterM) fc
                   | otherwise           = applyArrayFilterM arr fc
   where st  = v ^? _String
         arr = v ^.. values
 
 -- | Apply an array filter to an array
-applyArrayFilterM :: [Value]
-                  -> Expr
-                  -> Maybe Text
+applyArrayFilterM
+  :: [Value]
+  -> Expr
+  -> Maybe Text
 applyArrayFilterM [] (FilterCell "first" []) = pure ""
 applyArrayFilterM vs (FilterCell "first" []) = (vs ^? ix 0 . _String)               <|>
                                                (formatNum <$> vs ^? ix 0 . _Number) <|>
@@ -406,11 +429,15 @@ applyArrayFilterM [] (FilterCell "countElements" _) = pure "0"
 applyArrayFilterM vs (FilterCell "countElements" _) = pure . T.pack . show $ length vs
 applyArrayFilterM _  _ = Nothing
 
-renderv :: Value -> Maybe Text
-renderv v = v^?_String <|> (formatNum <$> v^?_Number)
+renderv
+  :: Value
+  -> Maybe Text
+renderv v =
+  v^?_String <|> (formatNum <$> v^?_Number)
 
 -- | Render each array element (can only contain strings or numbers!)
-renderEachArrayElem :: [Value]
-                    -> Maybe [Text]
+renderEachArrayElem
+  :: [Value]
+  -> Maybe [Text]
 renderEachArrayElem = traverse renderv
 

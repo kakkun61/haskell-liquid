@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 
 module Text.Liquid.VariableFinder where
@@ -9,6 +10,7 @@ import           Control.Monad.State.Lazy
 import qualified Data.List                as L
 import qualified Data.List.NonEmpty       as NEL
 import           Text.Liquid.Types
+
 
 -- | Allowed types
 data VType
@@ -20,76 +22,86 @@ data VType
   deriving (Eq, Show)
 
 -- | Map findAllVariables across terms from parsed template and concatenate variable with inferred type
-findAllVariables :: [Expr]
-                 -> [(JsonVarPath, VType)]
+findAllVariables
+  :: [Expr]
+  -> [(JsonVarPath, VType)]
 findAllVariables exps =
   L.nub . join $ flip runStateT VStringOrNumber . findVariables mzero <$> exps
 
 -- | Find all the variables in a node's children, with a type scope
-findVariables :: StateT VType [] JsonVarPath
-              -> Expr
-              -> StateT VType [] JsonVarPath
-findVariables vs (Variable v)        =
-  return v `mplus` vs
-findVariables vs (Equal l r)         =
-  (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (NotEqual l r)      =
-  (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (GtEqual l r)       =
-  put VNumber >> (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (LtEqual l r)       =
-  put VNumber >> (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (Gt l r)            =
-  put VNumber >> (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (Lt l r)            =
-  put VNumber >> (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (Or l r)            =
-  (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (And l r)           =
-  (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (Contains l r)      =
-  (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (Truthy t)          =
-  put VBool >> findVariables vs t
-findVariables vs (IfClause i)        =
-  findVariables vs i
-findVariables vs (IfKeyClause i)        =
-  findVariables vs i
-findVariables vs (ElsIfClause i)     =
-  findVariables vs i
-findVariables vs (Filter f xs)       =
-  put VString >> (findVariables mzero f) `mplus` (msum $ findVariables mzero <$> xs) `mplus` vs
-findVariables vs (Output o)          =
-  findVariables vs o
-findVariables vs (TrueStatements xs) =
-  (msum $ findVariables mzero <$> xs) `mplus` vs
-findVariables vs (IfLogic l r)       =
-  (findVariables mzero l) `mplus` (findVariables mzero r) `mplus` vs
-findVariables vs (CaseLogic c xts)   =
-  let (ls, rs) = unzip xts
-  in (findVariables mzero c)             `mplus`
-     (msum $ findVariables mzero <$> ls) `mplus`
-     (msum $ findVariables mzero <$> rs) `mplus`
-     vs
-findVariables vs _                   =
-  vs
+findVariables
+  :: StateT VType [] JsonVarPath
+  -> Expr
+  -> StateT VType [] JsonVarPath
+findVariables vs e = case e of
+  (Variable v)        -> return v `mplus` vs
+  (Equal l r)         -> findVariables mzero l `mplus`
+                         findVariables mzero r `mplus`
+                         vs
+  (NotEqual l r)      -> findVariables mzero l `mplus`
+                         findVariables mzero r `mplus`
+                         vs
+  (GtEqual l r)       -> put VNumber >> findVariables mzero l `mplus`
+                                        findVariables mzero r `mplus`
+                                        vs
+  (LtEqual l r)       -> put VNumber >> findVariables mzero l `mplus`
+                                        findVariables mzero r `mplus`
+                                        vs
+  (Gt l r)            -> put VNumber >> findVariables mzero l `mplus`
+                                        findVariables mzero r `mplus`
+                                        vs
+  (Lt l r)            -> put VNumber >> findVariables mzero l `mplus`
+                                        findVariables mzero r `mplus`
+                                        vs
+  (Or l r)            -> findVariables mzero l `mplus`
+                         findVariables mzero r `mplus`
+                         vs
+  (And l r)           -> findVariables mzero l `mplus`
+                         findVariables mzero r `mplus`
+                         vs
+  (Contains l r)      -> findVariables mzero l `mplus`
+                         findVariables mzero r `mplus`
+                         vs
+  (Truthy t)          -> put VBool >> findVariables vs t
+  (IfClause i)        -> findVariables vs i
+  (IfKeyClause i)     -> findVariables vs i
+  (ElsIfClause i)     -> findVariables vs i
+  (Filter f xs)       -> put VString >> findVariables mzero f             `mplus`
+                                        msum (findVariables mzero <$> xs) `mplus`
+                                        vs
+  (Output o)          -> findVariables vs o
+  (TrueStatements xs) -> msum (findVariables mzero <$> xs) `mplus` vs
+  (IfLogic l r)       -> findVariables mzero l `mplus`
+                         findVariables mzero r `mplus`
+                         vs
+  (CaseLogic c xts)   -> let (ls, rs) = unzip xts
+                         in findVariables mzero c             `mplus`
+                            msum (findVariables mzero <$> ls) `mplus`
+                            msum (findVariables mzero <$> rs) `mplus`
+                            vs
+  _                   -> vs
 
 -- | Find all context variables and add a sample filter.
 --   Designed to simulate required templates for aggregate contexts - see JsonTools
-makeAggregate :: Expr
-              -- ^ Aggregate sample filter to add
-              -> VarIndex
-              -- ^ Prefix to filter on - do not aggregate this prefix
-              -> [Expr]
-              -- ^ Parsed template to make `aggregate` style
-              -> [Expr]
+makeAggregate
+  :: Expr
+  -- ^ Aggregate sample filter to add
+  -> VarIndex
+  -- ^ Prefix to filter on - do not aggregate this prefix
+  -> [Expr]
+  -- ^ Parsed template to make `aggregate` style
+  -> [Expr]
 makeAggregate af pf xs =
   aggregateElem af pf <$> xs
 
-aggregateElem :: Expr     -- ^ Aggregate sample filter to add
-              -> VarIndex -- ^ Prefix to filter on - do not aggregate this prefix
-              -> Expr     -- ^ Expression under modification
-              -> Expr
+aggregateElem
+  :: Expr
+  -- ^ Aggregate sample filter to add
+  -> VarIndex
+  -- ^ Prefix to filter on - do not aggregate this prefix
+  -> Expr
+  -- ^ Expression under modification
+  -> Expr
 aggregateElem _  _ Noop                             = Noop
 aggregateElem _  _ r@(RawText _)                    = r
 aggregateElem _  _ n@(Num _)                        = n
@@ -146,16 +158,20 @@ aggregateElem af pf (CaseLogic x ys)                =
   CaseLogic (aggregateElem af pf x) ((aggregateElem af pf *** aggregateElem af pf) <$> ys)
 aggregateElem _  _  x                               = x
 
-updateFs :: Expr   -- ^ Aggregate sample filter to prepend
-         -> [Expr] -- ^ List of filter cells
-         -> [Expr]
-updateFs _  []                                             = []
-updateFs _  f@((FilterCell "first" _):_)                   = f
-updateFs _  f@((FilterCell "firstOrDefault" _):_)          = f
-updateFs _  f@((FilterCell "last" _):_)                    = f
-updateFs _  f@((FilterCell "lastOrDefault" _):_)           = f
-updateFs _  f@((FilterCell "countElements" _):_)           = f
-updateFs _  f@((FilterCell "renderWithSeparator" _):_)     = f
-updateFs _  f@((FilterCell "toSentenceWithSeparator" _):_) = f
-updateFs af (f:fs)                                         = af:f:fs
+updateFs
+  :: Expr
+  -- ^ Aggregate sample filter to prepend
+  -> [Expr]
+  -- ^ List of filter cells
+  -> [Expr]
+updateFs af e = case e of
+  []                                           -> []
+  f@(FilterCell "first" _:_)                   -> f
+  f@(FilterCell "firstOrDefault" _:_)          -> f
+  f@(FilterCell "last" _:_)                    -> f
+  f@(FilterCell "lastOrDefault" _:_)           -> f
+  f@(FilterCell "countElements" _:_)           -> f
+  f@(FilterCell "renderWithSeparator" _:_)     -> f
+  f@(FilterCell "toSentenceWithSeparator" _:_) -> f
+  (f:fs)                                       -> af:f:fs
 

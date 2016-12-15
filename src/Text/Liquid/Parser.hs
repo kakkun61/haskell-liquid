@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Text.Liquid.Parser where
 
 import           Prelude                    hiding (and, null, or, takeWhile)
@@ -7,7 +9,7 @@ import           Control.Lens               (Prism', prism')
 import           Data.Attoparsec.Combinator (lookAhead)
 import           Data.Attoparsec.Text
 import           Data.Char                  (isAlpha)
-import           Data.List.NonEmpty         (NonEmpty(..), nonEmpty)
+import           Data.List.NonEmpty         (NonEmpty (..), nonEmpty)
 import           Data.Scientific            (toBoundedInteger)
 import           Data.Semigroup             hiding (option)
 import           Data.Text                  (Text)
@@ -16,41 +18,53 @@ import           Text.Liquid.Helpers
 import           Text.Liquid.Tokens
 import           Text.Liquid.Types
 
+
 -- | Match middle parser, around explicit start and end parsers
-between :: Parser b -- ^ open tag parser
-        -> Parser b -- ^ close tag parser
-        -> Parser a -- ^ match middle parser
-        -> Parser a
+between
+  :: Parser b -- ^ open tag parser
+  -> Parser b -- ^ close tag parser
+  -> Parser a -- ^ match middle parser
+  -> Parser a
 between open close p = do
   _ <- open
   x <- p
   (close *> return x) <|> fail "Tag or output statement incomplete"
 
 -- | Match parser between whitespace
-stripped :: Parser a
-         -> Parser a
-stripped = between skipSpace skipSpace
+stripped
+  :: Parser a
+  -> Parser a
+stripped =
+  between skipSpace skipSpace
 
 -- | Match given parser for a tag
-tag :: Parser a
-    -> Parser a
-tag p = between tagStart tagEnd (stripped p)
+tag
+  :: Parser a
+  -> Parser a
+tag p =
+  between tagStart tagEnd (stripped p)
 
 -- | Match given parser for output block
-outputTag :: Parser a
-          -> Parser a
-outputTag p = between outputStart outputEnd (stripped p)
+outputTag
+  :: Parser a
+  -> Parser a
+outputTag p =
+  between outputStart outputEnd (stripped p)
 
 -- | Match given tag name (e.g. for, case) with following parser
-tagWith :: Parser a -- ^ initial tag type, e.g. for
-        -> Parser b -- ^ follow on parser, e.g. variable
-        -> Parser b
-tagWith tg p = tag $ tg *> skipSpace >> p
+tagWith
+  :: Parser a -- ^ initial tag type, e.g. for
+  -> Parser b -- ^ follow on parser, e.g. variable
+  -> Parser b
+tagWith tg p =
+  tag $ tg *> skipSpace >> p
 
 -- | Convert match into text
-mapT :: Parser [Char]
-     -> Parser Text
-mapT = fmap T.pack
+mapT
+  :: Parser [Char]
+  -> Parser Text
+mapT =
+  fmap T.pack
 
 -- | Match variables (without indices, including underscore or hash)
 var :: Parser Text
@@ -224,7 +238,9 @@ endCaseClause = (tag caseEnd) *> pure Noop
 -- | Match a filter fn name
 filterName :: Parser Text
 filterName = mapT $ skipSpace *> manyTill1 letter terminator
-  where terminator = colon <|> (skipSpace *> pipe) <|> (lookAhead $ satisfy (not . isAlpha))
+  where terminator = colon              <|>
+                    (skipSpace *> pipe) <|>
+                    (lookAhead $ satisfy (not . isAlpha))
 
 -- | Match the list of arguments for the filter fn
 filterArgs :: Parser [Expr]
@@ -310,7 +326,9 @@ ifLogic = do
   start  <- ifClause <|> ifKeyClause <|> elsifClause <|> elseClause
   iftrue <- TrueStatements <$>
             manyTill (output <|> textPart)
-                     (lookAhead elsifClause <|> lookAhead elseClause <|> lookAhead endIfClause)
+                     (lookAhead elsifClause <|>
+                      lookAhead elseClause  <|>
+                      lookAhead endIfClause)
   let sofar = IfLogic start iftrue
   (endIfClause *> pure sofar) <|> (IfLogic sofar <$> ifLogic)
 
@@ -325,7 +343,9 @@ caseLogic = do
           pattern <- whenClause <|> elseClause
           iftrue  <- TrueStatements <$>
                      manyTill (output <|> textPart)
-                              (lookAhead whenClause <|> lookAhead elseClause <|> lookAhead endCaseClause)
+                              (lookAhead whenClause <|>
+                               lookAhead elseClause <|>
+                               lookAhead endCaseClause)
           return (pattern, iftrue)
 
 -- | Parse any block type

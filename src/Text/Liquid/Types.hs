@@ -2,12 +2,13 @@
 
 module Text.Liquid.Types where
 
-import           Control.Lens.TH      (makePrisms)
-import           Data.Aeson.Types     (Value)
-import           Data.List.NonEmpty   (NonEmpty)
-import           Data.Scientific      (Scientific)
-import           Data.Text            (Text)
-import           Data.Validation      (AccValidation)
+import           Control.Lens.TH    (makePrisms)
+import           Data.Aeson.Types   (Value)
+import           Data.List.NonEmpty (NonEmpty)
+import           Data.Scientific    (Scientific)
+import           Data.Text          (Text)
+import           Data.Validation    (AccValidation)
+
 
 --------------------------------------------------------------------------------
 -- * Liquid Template Data
