@@ -1,13 +1,16 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Text.Liquid.Types where
 
 import           Control.Lens.TH    (makePrisms)
 import           Data.Aeson.Types   (Value)
+import           Data.Hashable      (Hashable)
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Scientific    (Scientific)
 import           Data.Text          (Text)
 import           Data.Validation    (AccValidation)
+import           GHC.Generics       (Generic)
 
 
 --------------------------------------------------------------------------------
@@ -19,7 +22,9 @@ type JsonVarPath = NonEmpty VarIndex
 data VarIndex
   = ObjectIndex Text
   | ArrayIndex Int
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance Hashable VarIndex
 
 data Expr
   = Noop
