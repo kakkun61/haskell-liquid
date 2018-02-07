@@ -256,6 +256,23 @@ assignClause = do
       val <- skipSpace *> valueExpression
       pure (var, val)
 
+-- | Match a for clause
+forClause :: Parser Expr
+forClause = do
+  (elmVar, arrVar) <- tagWith forStart inClause
+  return $ ForClause elmVar arrVar
+  where
+    inClause :: Parser (Expr, Expr)
+    inClause = do
+      elmVar <- skipSpace *> variable
+      _ <- skipSpace *> iN
+      arrVar <- skipSpace *> variable
+      return (elmVar, arrVar)
+
+-- | Match the end of an for clause
+endForClause :: Parser Expr
+endForClause = (tag forEnd) *> pure Noop
+
 -- | Match a filter fn name
 filterName :: Parser Text
 filterName = mapT $ skipSpace *> manyTill1 letter terminator
@@ -368,6 +385,15 @@ caseLogic = do
                                lookAhead elseClause <|>
                                lookAhead endCaseClause)
           return (pattern, iftrue)
+
+-- | For iteration
+forLogic :: Parser Expr
+forLogic = do
+  start <- forClause
+  iteration <-
+    TrueStatements <$>
+      manyTill (output <|> textPart) endForClause
+  return $ ForLogic start iteration
 
 -- | Parse any block type
 block :: Parser Expr

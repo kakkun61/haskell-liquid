@@ -51,12 +51,14 @@ data Expr
   | ElsIfClause Expr
   | Else
   | AssignClause Expr Expr
+  | ForClause Expr Expr
   | FilterCell Text [Expr]
   | Filter Expr [Expr]
   | Output Expr
   | TrueStatements [Expr]
   | IfLogic Expr Expr
   | CaseLogic Expr [(Expr, Expr)]
+  | ForLogic Expr Expr
   deriving (Eq, Show)
 makePrisms ''Expr
 

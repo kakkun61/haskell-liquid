@@ -511,6 +511,18 @@ case_whenClause6 = parseOnly whenClause "{% when %}" @?= Left "Failed reading: t
 
 case_assignClause1 = parseOnly assignClause "{% assign a = 1 %}" @?= Right (AssignClause (Variable $ ObjectIndex "a" :| []) (Num 1))
 
+-- * For Clause
+--------------------------------------------------------------------------------
+
+case_forClause1 = parseOnly forClause "{% for x in xs %}" @?=
+  Right (ForClause (Variable $ ObjectIndex "x" :| []) (Variable $ ObjectIndex "xs" :| []))
+
+--------------------------------------------------------------------------------
+-- * End For Clause
+--------------------------------------------------------------------------------
+
+case_endForClause1 = parseOnly endForClause "{% endfor %}" @?= Right Noop
+
 --------------------------------------------------------------------------------
 -- * Filter Name
 --------------------------------------------------------------------------------
@@ -710,6 +722,14 @@ case_caseLogic5 = parseOnly caseLogic "{% case a %}{% when 1 %}foo{% when \'a\' 
                    ,(QuoteString "a", TrueStatements [RawText "baz"])
                    ,(Else, TrueStatements [RawText "quux"])
                    ])
+
+--------------------------------------------------------------------------------
+-- * For logic
+--------------------------------------------------------------------------------
+
+case_forLogic1 = parseOnly forLogic "{% for x in xs %} foo {% endfor %}" @?=
+  Right (ForLogic (ForClause (Variable $ ObjectIndex "x" :| []) (Variable $ ObjectIndex "xs" :| []))
+                  (TrueStatements [(RawText " foo ")]))
 
 --------------------------------------------------------------------------------
 -- * Blocks
