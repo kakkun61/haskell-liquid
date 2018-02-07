@@ -399,6 +399,7 @@ forLogic = do
 block :: Parser Expr
 block = choice [ ifLogic
                , caseLogic
+               , forLogic
                , assignClause
                , rawTag
                , commentTag

@@ -9,6 +9,7 @@ import           Data.Aeson.Lens
 import qualified Data.Aeson.Lens      as AL
 import           Data.Attoparsec.Text
 import           Data.Bifunctor       (second)
+import           Data.Foldable        (foldl')
 import           Data.List            (intersperse)
 import           Data.List.NonEmpty   (NonEmpty (..), (<|))
 import           Data.Maybe           (fromMaybe)
@@ -44,15 +45,12 @@ interpret j es = fst <$> renderTemplates j es
 
 -- | Render list of expression
 renderTemplates :: Value -> [Expr] -> Rendering (Text, Value)
-renderTemplates ctx templates =
-  go ctx templates T.empty
+renderTemplates j =
+  foldl' go (pure (T.empty, j))
   where
-    go :: Value -> [Expr] -> Text -> Rendering (Text, Value)
-    go c (e:es) t =
-      case renderTemplate c e of
-        AccSuccess (t', c') -> go c' es (t <> t')
-        failure -> failure
-    go c [] t = pure (t, c)
+    go :: Rendering (Text, Value) -> Expr -> Rendering (Text, Value)
+    go (AccSuccess (x, j')) t = (\(x', j'') -> (x <> x', j'')) <$> renderTemplate j' t
+    go failure _ = failure
 
 -- | Main template block rendering fn
 renderTemplate
@@ -127,25 +125,18 @@ renderTemplate j (CaseLogic (Variable v) patterns) =
 
 -- | Assign
 renderTemplate j (AssignClause (Variable var) t) =
-  let
-    r =
-      case evalTruthiness j t of
-        AccSuccess b -> _Success # Bool b
-        _ ->
-          case t of
-            Variable v -> extractValue j v
-            Num n -> _Success # Number n
-            QuoteString x -> _Success # String x
-            Trueth -> _Success # Bool True
-            Falseth -> _Success # Bool False
-            _ -> _Failure # [ RenderingFailure "" ]
-  in
-    case r of
-      AccSuccess v ->
-        case attachContext var v j of
-          Right j' -> pure (T.empty, j')
-          Left err -> _Failure # [ RenderingFailure err ]
-      failure -> idContext j (const $ second (const T.empty) failure)
+  case evalValue j t of
+    AccSuccess v ->
+      case attachContext var v j of
+        Right j' -> pure (T.empty, j')
+        Left err -> _Failure # [ RenderingFailure err ]
+    failure -> idContext j (const $ second (const T.empty) failure)
+
+-- | For logic
+renderTemplate j (ForLogic (ForClause (Variable x) xs) (TrueStatements ts)) =
+  case evalValue j xs of
+    AccSuccess v -> evalForLogic j x v ts
+    failure -> idContext j $ const $ second (const T.empty) failure
 
 -- | Catch all error - theoretically impossible.
 renderTemplate _ _ =
@@ -185,6 +176,19 @@ evalCaseLogic _ v ((Else, TrueStatements _):_)            =
   _Failure # [ RenderingFailure "Multiple else blocks in a case statement" ] <*> v
 evalCaseLogic _ v _                                       =
   _Failure # [ RenderingFailure "Impossible case pattern evaluation" ] <*> v
+
+-- | Evaluate for logic
+evalForLogic :: Value -> JsonVarPath -> Value -> [Expr] -> Rendering (Text, Value)
+evalForLogic j p (Array a) ts =
+  foldl' go (pure (T.empty, j)) a
+  where
+    go :: Rendering (Text, Value) -> Value -> Rendering (Text, Value)
+    go (AccSuccess (t, j')) v =
+      case attachContext p v j' of
+        Right j'' -> (\(t', j''') -> (t <> t', j''')) <$> renderTemplates j'' ts
+        Left err -> _Failure # [ RenderingFailure err ]
+    go failure _ = failure
+evalForLogic _ _ _ _ = _Failure # [ RenderingFailure "It cannot iterate other than array."]
 
 -- | Render a renderable Expr as Text
 renderText
@@ -477,3 +481,16 @@ attachContext _ _ _ = Left "New variable name must be a text."
 
 idContext :: Value -> (Value -> Rendering a) -> Rendering (a, Value)
 idContext j f = (\a -> (a, j)) <$> f j
+
+evalValue :: Value -> Expr -> Rendering Value
+evalValue j t =
+  case evalTruthiness j t of
+    AccSuccess b -> _Success # Bool b
+    _ ->
+      case t of
+        Variable v -> extractValue j v
+        Num n -> _Success # Number n
+        QuoteString x -> _Success # String x
+        Trueth -> _Success # Bool True
+        Falseth -> _Success # Bool False
+        _ -> _Failure # [ RenderingFailure "expects value normal form" ]

@@ -1094,6 +1094,20 @@ case_renderTemplate27 = let j = object []
                             exp = AccSuccess (Data.Text.empty, object ["a" .= ("foo" :: Text)])
                         in res @?= exp
 
+case_renderTemplate28 = let j = object ["a" .= (["b"] :: [Text])]
+                            e = ForLogic (ForClause (Variable $ ObjectIndex "x" :| []) (Variable $ ObjectIndex "a" :| []))
+                                         (TrueStatements [RawText " foo "])
+                            res = renderTemplate j e
+                            exp = AccSuccess (" foo ", object ["a" .= (["b"] :: [Text]), "x" .= ("b" :: Text)])
+                        in res @?= exp
+
+case_renderTemplate29 = let j = object ["a" .= (["b", "c"] :: [Text])]
+                            e = ForLogic (ForClause (Variable $ ObjectIndex "x" :| []) (Variable $ ObjectIndex "a" :| []))
+                                         (TrueStatements [RawText " foo "])
+                            res = renderTemplate j e
+                            exp = AccSuccess (" foo  foo ", object ["a" .= (["b", "c"] :: [Text]), "x" .= ("c" :: Text)])
+                        in res @?= exp
+
 --------------------------------------------------------------------------------
 -- * interpret
 --------------------------------------------------------------------------------
