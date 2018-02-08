@@ -779,56 +779,56 @@ case_renderText7 = renderText (object []) Else @?= AccFailure [ RenderingFailure
 -- * evalCaseLogic
 --------------------------------------------------------------------------------
 
-case_evalCaseLogic1 = evalCaseLogic (object []) (pure $ toJSON ("a" :: Text)) [] @?= AccSuccess ""
+case_evalCaseLogic1 = evalCaseLogic (object []) (pure $ toJSON ("a" :: Text)) [] @?= AccSuccess ("", object [])
 case_evalCaseLogic2 = evalCaseLogic (object [])
                                     (pure $ toJSON . sc $ 123)
-                                    [(Num $ sc 123, TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess "foobar"
+                                    [(Num $ sc 123, TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess ("foobar", object [])
 
 case_evalCaseLogic3 = evalCaseLogic (object [])
                                     (pure $ toJSON $ sc 123)
-                                    [(Num $ sc 124, TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess ""
+                                    [(Num $ sc 124, TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess ("", object [])
 
 case_evalCaseLogic4 = evalCaseLogic (object [])
                                     (pure $ toJSON $ sc 123)
                                     [ (Num $ sc 124, TrueStatements [RawText "foo", RawText "bar"])
                                     , (Num $ sc 123, TrueStatements [RawText "foo", RawText "baz"])
-                                    ] @?= AccSuccess "foobaz"
+                                    ] @?= AccSuccess ("foobaz", object [])
 
 case_evalCaseLogic5 = evalCaseLogic (object [])
                                     (pure $ toJSON ("hello" :: Text))
-                                    [(QuoteString "hello", TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess "foobar"
+                                    [(QuoteString "hello", TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess ("foobar", object [])
 
 case_evalCaseLogic6 = evalCaseLogic (object [])
                                     (pure $ toJSON ("helo" :: Text))
-                                    [(QuoteString "hello", TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess ""
+                                    [(QuoteString "hello", TrueStatements [RawText "foo", RawText "bar"])] @?= AccSuccess ("", object [])
 
 case_evalCaseLogic7 = evalCaseLogic (object [])
                                     (pure $ toJSON ("helo" :: Text))
                                     [ (QuoteString "hello", TrueStatements [RawText "foo", RawText "bar"])
                                     , (QuoteString "helo", TrueStatements [RawText "foo", RawText "baz"])
-                                    ] @?= AccSuccess "foobaz"
+                                    ] @?= AccSuccess ("foobaz", object [])
 
 case_evalCaseLogic8 = evalCaseLogic (object [])
                                     (pure $ toJSON ("helo" :: Text))
                                     [ (Else, TrueStatements [RawText "foo", RawText "bar"])
-                                    ] @?= AccSuccess "foobar"
+                                    ] @?= AccSuccess ("foobar", object [])
 
 case_evalCaseLogic9 = evalCaseLogic (object [])
                                     (pure $ toJSON ("helo" :: Text))
                                     [ (QuoteString "hello", TrueStatements [RawText "foo", RawText "baz"])
                                     , (Else, TrueStatements [RawText "foo", RawText "bar"])
-                                    ] @?= AccSuccess "foobar"
+                                    ] @?= AccSuccess ("foobar", object [])
 
 case_evalCaseLogic10 = evalCaseLogic (object [])
                                      (pure $ toJSON ("helo" :: Text))
                                      [(Trueth, TrueStatements [RawText "foo", RawText "bar"])] @?=
-  AccFailure [ RenderingFailure "Impossible case pattern evaluation" ]
+                                      AccFailure [ RenderingFailure "Impossible case pattern evaluation" ]
 
 case_evalCaseLogic11 = evalCaseLogic (object ["a" .= ("quux" :: Text)])
                                     (pure $ toJSON ("helo" :: Text))
                                     [ (QuoteString "hello", TrueStatements [RawText "foo", RawText "baz"])
                                     , (Else, TrueStatements [RawText "foo", RawText "bar", Output $ Variable $ ObjectIndex "a" :| []])
-                                    ] @?= AccSuccess "foobarquux"
+                                    ] @?= AccSuccess ("foobarquux", object ["a" .= ("quux" :: Text)])
 
 --------------------------------------------------------------------------------
 -- * evalLogic
@@ -838,42 +838,42 @@ case_evalLogic1 = let j = object []
                       p = pure True
                       t = []
                       res = evalLogic j p t
-                      exp = AccSuccess ""
+                      exp = AccSuccess ("", j)
                   in res @?= exp
 
 case_evalLogic2 = let j = object []
                       p = pure False
                       t = []
                       res = evalLogic j p t
-                      exp = AccSuccess ""
+                      exp = AccSuccess ("", j)
                   in res @?= exp
 
 case_evalLogic3 = let j = object []
                       p = pure True
                       t = [RawText "foo"]
                       res = evalLogic j p t
-                      exp = AccSuccess "foo"
+                      exp = AccSuccess ("foo", j)
                   in res @?= exp
 
 case_evalLogic4 = let j = object []
                       p = pure True
                       t = [RawText "foo", RawText "bar"]
                       res = evalLogic j p t
-                      exp = AccSuccess "foobar"
+                      exp = AccSuccess ("foobar", j)
                   in res @?= exp
 
 case_evalLogic5 = let j = object []
                       p = pure False
                       t = [RawText "foo", RawText "bar"]
                       res = evalLogic j p t
-                      exp = AccSuccess ""
+                      exp = AccSuccess ("", j)
                   in res @?= exp
 
 case_evalLogic6 = let j = object ["a" .= ("baz" :: Text)]
                       p = pure True
                       t = [RawText "foo", RawText "bar", Output $ Variable $ ObjectIndex "a" :| []]
                       res = evalLogic j p t
-                      exp = AccSuccess "foobarbaz"
+                      exp = AccSuccess ("foobarbaz", object ["a" .= ("baz" :: Text)])
                   in res @?= exp
 
 case_evalLogic7 = let j = object []
@@ -890,19 +890,19 @@ case_evalLogic7 = let j = object []
 case_renderTemplate1 = let j = object []
                            e = Output (Filter (QuoteString "abc") [FilterCell "toUpper" []])
                            res = renderTemplate j e
-                           exp = AccSuccess "ABC"
+                           exp = AccSuccess ("ABC", j)
                        in res @?= exp
 
 case_renderTemplate2 = let j = object []
                            e = Output (QuoteString "foo")
                            res = renderTemplate j e
-                           exp = AccSuccess "foo"
+                           exp = AccSuccess ("foo", j)
                        in res @?= exp
 
 case_renderTemplate3 = let j = object ["a" .= ("baz" :: Text)]
                            e = Output (Variable $ ObjectIndex "a" :| [])
                            res = renderTemplate j e
-                           exp = AccSuccess "baz"
+                           exp = AccSuccess ("baz", object ["a" .= ("baz" :: Text)])
                        in res @?= exp
 
 case_renderTemplate4 = let j = object []
@@ -914,122 +914,122 @@ case_renderTemplate4 = let j = object []
 case_renderTemplate5 = let j = object []
                            e = Output (Num $ sc 123)
                            res = renderTemplate j e
-                           exp = AccSuccess "123"
+                           exp = AccSuccess ("123", j)
                        in res @?= exp
 
 case_renderTemplate6 = let j = object []
                            e = RawText "foobar"
                            res = renderTemplate j e
-                           exp = AccSuccess "foobar"
+                           exp = AccSuccess ("foobar", j)
                        in res @?= exp
 
 case_renderTemplate7 = let j = object ["a" .= (1 :: Integer)]
-                           e = (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
-                                        (TrueStatements [(RawText " foo ")]))
+                           e = IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                                       (TrueStatements [(RawText " foo ")])
                            res = renderTemplate j e
-                           exp = AccSuccess " foo "
+                           exp = AccSuccess (" foo ", object ["a" .= (1 :: Integer)])
                        in res @?= exp
 
 case_renderTemplate8 = let j = object ["a" .= ("1" :: Text)]
-                           e = (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
-                                        (TrueStatements [(RawText " foo ")]))
+                           e = IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                                       (TrueStatements [(RawText " foo ")])
                            res = renderTemplate j e
-                           exp = AccSuccess ""
+                           exp = AccSuccess ("", j)
                        in res @?= exp
 
 case_renderTemplate9 = let j = object ["a" .= (1 :: Integer), "abc" .= ("yo" :: Text)]
-                           e = (IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
-                                        (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| []), (RawText " ok")]))
-                                        (IfLogic Else (TrueStatements [RawText "yo"])))
+                           e = IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                                       (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| []), (RawText " ok")]))
+                                       (IfLogic Else (TrueStatements [RawText "yo"]))
                            res = renderTemplate j e
-                           exp = AccSuccess "yo ok"
+                           exp = AccSuccess ("yo ok", j)
                        in res @?= exp
 
 case_renderTemplate10 = let j = object ["a" .= (2 :: Integer), "abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
-                                         (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| []), (RawText " ok")]))
-                                         (IfLogic Else (TrueStatements [RawText "yo"])))
+                            e = IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                                        (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| []), (RawText " ok")]))
+                                        (IfLogic Else (TrueStatements [RawText "yo"]))
                             res = renderTemplate j e
-                            exp = AccSuccess "yo"
+                            exp = AccSuccess ("yo", j)
                         in res @?= exp
 
 case_renderTemplate11 = let j = object ["a" .= (2 :: Integer), "abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                            e = IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause Trueth) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yo"]))))
+                                         (IfLogic Else (TrueStatements [RawText "yo"])))
                             res = renderTemplate j e
-                            exp = AccSuccess "ok"
+                            exp = AccSuccess ("ok", j)
                         in res @?= exp
 
 case_renderTemplate12 = let j = object ["a" .= (2 :: Integer), "abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                            e = IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [] )]))
                                 (IfLogic (IfLogic (ElsIfClause (Equal (Num $ sc 2) (Variable $ ObjectIndex "a" :| []))) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yo"]))))
+                                         (IfLogic Else (TrueStatements [RawText "yo"])))
                             res = renderTemplate j e
-                            exp = AccSuccess "ok"
+                            exp = AccSuccess ("ok", j)
                         in res @?= exp
 
 case_renderTemplate13 = let j = object ["a" .= (3 :: Integer), "abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                            e = IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause (Equal (Num $ sc 2) (Variable $ ObjectIndex "a" :| []))) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yo", Output $ Variable $ ObjectIndex "abc" :| []]))))
+                                         (IfLogic Else (TrueStatements [RawText "yo", Output $ Variable $ ObjectIndex "abc" :| []])))
                             res = renderTemplate j e
-                            exp = AccSuccess "yoyo"
+                            exp = AccSuccess ("yoyo", j)
                         in res @?= exp
 
 case_renderTemplate14 = let j = object ["a" .= (3 :: Integer), "ab" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
+                            e = IfLogic (IfLogic (IfClause (Equal (Num $ sc 1) (Variable $ ObjectIndex "a" :| [])))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause (Equal (Num $ sc 2) (Variable $ ObjectIndex "a" :| []))) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yo", Output $ Variable $ ObjectIndex "abc" :| []]))))
+                                         (IfLogic Else (TrueStatements [RawText "yo", Output $ Variable $ ObjectIndex "abc" :| []])))
                             res = renderTemplate j e
                             exp = AccFailure [ JsonValueNotFound $ ObjectIndex "abc" :| [] ]
                         in res @?= exp
 
 case_renderTemplate15 = let j = object ["a" .= (1 :: Integer), "ab" .= ("yo" :: Text)]
-                            e = (CaseLogic (Variable $ ObjectIndex "a" :| [])
-                                           [(Num $ sc 1, TrueStatements [RawText "foo"])])
+                            e = CaseLogic (Variable $ ObjectIndex "a" :| [])
+                                          [(Num $ sc 1, TrueStatements [RawText "foo"])]
                             res = renderTemplate j e
-                            exp = AccSuccess "foo"
+                            exp = AccSuccess ("foo", j)
                         in res @?= exp
 
 case_renderTemplate16 = let j = object ["a" .= (2 :: Integer), "ab" .= ("yo" :: Text)]
-                            e = (CaseLogic (Variable $ ObjectIndex "a" :| [])
-                                           [(Num $ sc 1, TrueStatements [RawText "foo"])])
+                            e = CaseLogic (Variable $ ObjectIndex "a" :| [])
+                                           [(Num $ sc 1, TrueStatements [RawText "foo"])]
                             res = renderTemplate j e
-                            exp = AccSuccess ""
+                            exp = AccSuccess ("", j)
                         in res @?= exp
 
 case_renderTemplate17 = let j = object ["a" .= (2 :: Integer), "ab" .= ("yo" :: Text)]
-                            e = (CaseLogic (Variable $ ObjectIndex "a" :| [])
-                                           [(Num $ sc 1, TrueStatements [RawText "foo"])
-                                           ,(Num $ sc 2, TrueStatements [RawText "baz"])
-                                           ])
+                            e = CaseLogic (Variable $ ObjectIndex "a" :| [])
+                                          [(Num $ sc 1, TrueStatements [RawText "foo"])
+                                          ,(Num $ sc 2, TrueStatements [RawText "baz"])
+                                          ]
                             res = renderTemplate j e
-                            exp = AccSuccess "baz"
+                            exp = AccSuccess ("baz", j)
                         in res @?= exp
 
 case_renderTemplate18 = let j = object ["a" .= (2 :: Integer), "ab" .= ("yo" :: Text)]
-                            e = (CaseLogic (Variable $ ObjectIndex "a" :| [])
-                                           [ (Num $ sc 1, TrueStatements [RawText "foo"])
-                                           , (Num $ sc 3, TrueStatements [RawText "baz"])
-                                           , (Else, TrueStatements [RawText "quux"])
-                                           ])
+                            e = CaseLogic (Variable $ ObjectIndex "a" :| [])
+                                          [ (Num $ sc 1, TrueStatements [RawText "foo"])
+                                          , (Num $ sc 3, TrueStatements [RawText "baz"])
+                                          , (Else, TrueStatements [RawText "quux"])
+                                          ]
                             res = renderTemplate j e
-                            exp = AccSuccess "quux"
+                            exp = AccSuccess ("quux", j)
                         in res @?= exp
 
 case_renderTemplate19 = let j = object ["a" .= (2 :: Integer), "ab" .= ("yo" :: Text)]
-                            e = (CaseLogic (Variable $ ObjectIndex "a" :| [])
-                                           [ (Num $ sc 1, TrueStatements [RawText "foo"])
-                                           , (Num $ sc 3, TrueStatements [RawText "baz"])
-                                           , (Else, TrueStatements [Output $ Variable $ ObjectIndex "ab" :| []])
-                                           ])
+                            e = CaseLogic (Variable $ ObjectIndex "a" :| [])
+                                          [ (Num $ sc 1, TrueStatements [RawText "foo"])
+                                          , (Num $ sc 3, TrueStatements [RawText "baz"])
+                                          , (Else, TrueStatements [Output $ Variable $ ObjectIndex "ab" :| []])
+                                          ]
                             res = renderTemplate j e
-                            exp = AccSuccess "yo"
+                            exp = AccSuccess ("yo", j)
                         in res @?= exp
 
 case_renderTemplate20 = let j = object []
@@ -1039,53 +1039,59 @@ case_renderTemplate20 = let j = object []
                         in res @?= exp
 
 case_renderTemplate21 = let j = object ["a" .= (1 :: Integer)]
-                            e = (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
-                                         (TrueStatements [(RawText " foo ")]))
+                            e = IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
+                                        (TrueStatements [(RawText " foo ")])
                             res = renderTemplate j e
-                            exp = AccSuccess " foo "
+                            exp = AccSuccess (" foo ", j)
                         in res @?= exp
 
 case_renderTemplate22 = let j = object ["b" .= (1 :: Integer)]
-                            e = (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
-                                         (TrueStatements [(RawText " foo ")]))
+                            e = IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
+                                        (TrueStatements [(RawText " foo ")])
                             res = renderTemplate j e
-                            exp = AccSuccess ""
+                            exp = AccSuccess ("", j)
                         in res @?= exp
 
 case_renderTemplate23 = let j = object ["a" .= (3 :: Integer), "abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
+                            e = IfLogic (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause (Equal (Num $ sc 2) (Variable $ ObjectIndex "a" :| []))) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yo", Output $ Variable $ ObjectIndex "abc" :| []]))))
+                                         (IfLogic Else (TrueStatements [RawText "yo", Output $ Variable $ ObjectIndex "abc" :| []])))
                             res = renderTemplate j e
-                            exp = AccSuccess "yo"
+                            exp = AccSuccess ("yo", j)
                         in res @?= exp
 
 case_renderTemplate24 = let j = object ["a" .= A.Null, "abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
+                            e = IfLogic (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause (Equal (Num $ sc 2) (Variable $ ObjectIndex "a" :| []))) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yohh", Output $ Variable $ ObjectIndex "abc" :| []]))))
+                                         (IfLogic Else (TrueStatements [RawText "yohh", Output $ Variable $ ObjectIndex "abc" :| []])))
                             res = renderTemplate j e
-                            exp = AccSuccess "yohhyo"
+                            exp = AccSuccess ("yohhyo", j)
                         in res @?= exp
 
 case_renderTemplate25 = let j = object ["abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
+                            e = IfLogic (IfLogic (IfKeyClause (Variable $ ObjectIndex "a" :| []))
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause Falseth) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yohh", Output $ Variable $ ObjectIndex "abc" :| []]))))
+                                         (IfLogic Else (TrueStatements [RawText "yohh", Output $ Variable $ ObjectIndex "abc" :| []])))
                             res = renderTemplate j e
-                            exp = AccSuccess "yohhyo"
+                            exp = AccSuccess ("yohhyo", j)
                         in res @?= exp
 
 case_renderTemplate26 = let j = object ["abc" .= ("yo" :: Text)]
-                            e = (IfLogic (IfLogic (IfKeyClause Null)
+                            e = IfLogic (IfLogic (IfKeyClause Null)
                                     (TrueStatements [(Output $ Variable $ ObjectIndex "abc" :| [])]))
                                 (IfLogic (IfLogic (ElsIfClause Falseth) (TrueStatements [RawText "ok"]))
-                                         (IfLogic Else (TrueStatements [RawText "yohh", Output $ Variable $ ObjectIndex "abc" :| []]))))
+                                         (IfLogic Else (TrueStatements [RawText "yohh", Output $ Variable $ ObjectIndex "abc" :| []])))
                             res = renderTemplate j e
                             exp = AccFailure [ RenderingFailure "Can't evalulate if key on anything other than json context variables" ]
+                        in res @?= exp
+
+case_renderTemplate27 = let j = object []
+                            e = AssignClause (Variable $ ObjectIndex "a" :| []) (QuoteString "foo")
+                            res = renderTemplate j e
+                            exp = AccSuccess (Data.Text.empty, object ["a" .= ("foo" :: Text)])
                         in res @?= exp
 
 --------------------------------------------------------------------------------

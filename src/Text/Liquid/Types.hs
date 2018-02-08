@@ -50,6 +50,7 @@ data Expr
   | IfKeyClause Expr
   | ElsIfClause Expr
   | Else
+  | AssignClause Expr Expr
   | FilterCell Text [Expr]
   | Filter Expr [Expr]
   | Output Expr

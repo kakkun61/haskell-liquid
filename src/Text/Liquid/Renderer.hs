@@ -40,21 +40,32 @@ interpret
   :: Value
   -> [Expr]
   -> Rendering Text
-interpret ctx template =
-  foldl (<>) T.empty <$> sequenceA (renderTemplate ctx <$> template)
+interpret j es = fst <$> renderTemplates j es
+
+-- | Render list of expression
+renderTemplates :: Value -> [Expr] -> Rendering (Text, Value)
+renderTemplates ctx templates =
+  go ctx templates T.empty
+  where
+    go :: Value -> [Expr] -> Text -> Rendering (Text, Value)
+    go c (e:es) t =
+      case renderTemplate c e of
+        AccSuccess (t', c') -> go c' es (t <> t')
+        failure -> failure
+    go c [] t = pure (t, c)
 
 -- | Main template block rendering fn
 renderTemplate
   :: Value
   -> Expr
-  -> Rendering Text
+  -> Rendering (Text, Value)
 
 -- | Rendering types
-renderTemplate j (Output f@(Filter _ _))      = applyFilter j f
-renderTemplate j (Output q@(QuoteString _))   = renderText j q
-renderTemplate j (Output v@(Variable _))      = renderText j v
-renderTemplate j (Output n@(Num _))           = renderText j n
-renderTemplate _ (RawText t)                  = pure t
+renderTemplate j (Output f@(Filter _ _))      = idContext j (flip applyFilter f)
+renderTemplate j (Output q@(QuoteString _))   = idContext j (flip renderText q)
+renderTemplate j (Output v@(Variable _))      = idContext j (flip renderText v)
+renderTemplate j (Output n@(Num _))           = idContext j (flip renderText n)
+renderTemplate j (RawText t)                  = idContext j (const $ pure t)
 
 -- | If logic
 renderTemplate j (IfLogic (IfClause i)
@@ -114,6 +125,28 @@ renderTemplate j (IfLogic (IfLogic (IfKeyClause it) (TrueStatements ts))
 renderTemplate j (CaseLogic (Variable v) patterns) =
   evalCaseLogic j (extractValue j v) patterns
 
+-- | Assign
+renderTemplate j (AssignClause (Variable var) t) =
+  let
+    r =
+      case evalTruthiness j t of
+        AccSuccess b -> _Success # Bool b
+        _ ->
+          case t of
+            Variable v -> extractValue j v
+            Num n -> _Success # Number n
+            QuoteString x -> _Success # String x
+            Trueth -> _Success # Bool True
+            Falseth -> _Success # Bool False
+            _ -> _Failure # [ RenderingFailure "" ]
+  in
+    case r of
+      AccSuccess v ->
+        case attachContext var v j of
+          Right j' -> pure (T.empty, j')
+          Left err -> _Failure # [ RenderingFailure err ]
+      failure -> idContext j (const $ second (const T.empty) failure)
+
 -- | Catch all error - theoretically impossible.
 renderTemplate _ _ =
   _Failure # [ LiquidError "Template rendering critical error!" ]
@@ -123,32 +156,29 @@ evalLogic
   :: Value          -- ^ JSON Context
   -> Rendering Bool -- ^ Predicate / logical expression result
   -> [Expr]         -- ^ Expressions to evaluate if true
-  -> Rendering Text
-evalLogic j (AccSuccess True) ts =
-    foldl (<>) T.empty <$> tevals
-  where tevals = sequenceA $ (renderTemplate j <$> ts)
-evalLogic _ (AccSuccess False) _ = pure T.empty
-evalLogic _ failure _            =
-  second (const T.empty) failure
+  -> Rendering (Text, Value)
+evalLogic j (AccSuccess True) ts = renderTemplates j ts
+evalLogic j (AccSuccess False) _ = idContext j (const $ pure T.empty)
+evalLogic j failure _            = idContext j (const $ second (const T.empty) failure)
 
 -- | Evaluate case logic
 evalCaseLogic
   :: Value
   -> Rendering Value -- ^ Extracted JSON value for case match
   -> [(Expr, Expr)]
-  -> Rendering Text
-evalCaseLogic _ _ []                                      =
-  pure T.empty
+  -> Rendering (Text, Value)
+evalCaseLogic j _ []                                      =
+  pure (T.empty, j)
 evalCaseLogic j v ((Num n, TrueStatements ts):xs)         =
   case (==) (pure n) <$> preview _Number <$> v of
     AccSuccess True  -> evalLogic j (pure True) ts
     AccSuccess False -> evalCaseLogic j v xs
-    failure          -> second (const T.empty) failure
+    failure          -> idContext j (const $ second (const T.empty) failure)
 evalCaseLogic j v ((QuoteString q, TrueStatements ts):xs) =
   case (==) (pure q) <$> preview _String <$> v of
     AccSuccess True  -> evalLogic j (pure True) ts
     AccSuccess False -> evalCaseLogic j v xs
-    failure          -> second (const T.empty) failure
+    failure          -> idContext j (const $ second (const T.empty) failure)
 evalCaseLogic j _ ((Else, TrueStatements ts):[])          =
   evalLogic j (pure True) ts
 evalCaseLogic _ v ((Else, TrueStatements _):_)            =
@@ -441,3 +471,9 @@ renderEachArrayElem
   -> Maybe [Text]
 renderEachArrayElem = traverse renderv
 
+attachContext :: JsonVarPath -> Value -> Value -> Either Text Value
+attachContext (ObjectIndex k :| []) v (Object o) = pure $ Object $ o & at k ?~ v
+attachContext _ _ _ = Left "New variable name must be a text."
+
+idContext :: Value -> (Value -> Rendering a) -> Rendering (a, Value)
+idContext j f = (\a -> (a, j)) <$> f j

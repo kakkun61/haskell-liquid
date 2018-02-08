@@ -506,6 +506,12 @@ case_whenClause5 = parseOnly whenClause "{%when123 %}" @?= Right (Num $ sc 123)
 case_whenClause6 = parseOnly whenClause "{% when %}" @?= Left "Failed reading: takeWhile1"
 
 --------------------------------------------------------------------------------
+-- * Assign Clause
+--------------------------------------------------------------------------------
+
+case_assignClause1 = parseOnly assignClause "{% assign a = 1 %}" @?= Right (AssignClause (Variable $ ObjectIndex "a" :| []) (Num 1))
+
+--------------------------------------------------------------------------------
 -- * Filter Name
 --------------------------------------------------------------------------------
 
@@ -754,6 +760,11 @@ case_templateParser5 = parseOnly templateParser " abc{% case a %}{% when 1 %}foo
         ]
 
 case_templateParser6 = parseOnly templateParser "" @?= Left "Syntax Error > Block Parsing: Failed reading: empty"
+
+case_templateParser7 = parseOnly templateParser "{% assign a = 1 %}{{ a }}" @?=
+  Right [ AssignClause (Variable $ ObjectIndex "a" :| []) (Num 1)
+        , Output (Variable (ObjectIndex "a" :| []))
+        ]
 
 prop_templateP_is_lawful1 =
   forAll genTemplateExpr (\t -> (preview templateP (review templateP t)) == Just t)

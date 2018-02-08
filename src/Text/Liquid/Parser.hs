@@ -149,23 +149,31 @@ quoteString = do
   qs        <- mapT $ manyTill anyChar (char beginTick)
   return $ QuoteString qs
 
+-- | Match a expression which is evaluated to value
+valueExpression :: Parser Expr
+valueExpression =
+  immediateValue <|>
+  variable       <|>
+  predicate      <|>
+  binaryPredicate
+
+-- | Match a immediate value
+immediateValue :: Parser Expr
+immediateValue =
+  quoteString                 <|>
+  (Num <$> scientific)        <|>
+  Null <$ (stripped null)     <|>
+  Nil <$ (stripped nil)       <|>
+  Falseth <$ (stripped false) <|>
+  Trueth  <$ (stripped true)
+
 -- | Match a binary predicate, e.g. a.b >= b.name
 binaryPredicate :: Parser Expr
 binaryPredicate = do
-  lhs <- quoteString                 <|>
-         (Num <$> scientific)        <|>
-         Null <$ (stripped null)     <|>
-         Nil <$ (stripped nil)       <|>
-         Falseth <$ (stripped false) <|>
-         Trueth  <$ (stripped true)  <|>
+  lhs <- immediateValue <|>
          variable
   op  <- ordOperator
-  rhs <- quoteString                 <|>
-         (Num <$> scientific)        <|>
-         Null <$ (stripped null)     <|>
-         Nil <$ (stripped nil)       <|>
-         Falseth <$ (stripped false) <|>
-         Trueth  <$ (stripped true)  <|>
+  rhs <- immediateValue <|>
          variable
   return $ op lhs rhs
 
@@ -234,6 +242,19 @@ whenClause = tagWith when (quoteString <|> (Num <$> scientific))
 -- | Match the end of a case pattern match block
 endCaseClause :: Parser Expr
 endCaseClause = (tag caseEnd) *> pure Noop
+
+-- | Match an assign clause
+assignClause :: Parser Expr
+assignClause = do
+  (var, val) <- tagWith assign assignExpr
+  pure $ AssignClause var val
+  where
+    assignExpr :: Parser (Expr, Expr)
+    assignExpr = do
+      var <- variable
+      _ <- skipSpace *> eqSign
+      val <- skipSpace *> valueExpression
+      pure (var, val)
 
 -- | Match a filter fn name
 filterName :: Parser Text
@@ -352,6 +373,7 @@ caseLogic = do
 block :: Parser Expr
 block = choice [ ifLogic
                , caseLogic
+               , assignClause
                , rawTag
                , commentTag
                , output
