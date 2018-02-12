@@ -1134,6 +1134,12 @@ case_interpretWithJson6 = let j = maybe (object []) id (preview _Value ("{\"a\":
                               exp = AccSuccess "helloBARRY yoyoyo"
                           in res @?= exp
 
+case_interpretWithJson7 = let j = object []
+                              t = ""
+                              res = interpretWithJson j t
+                              exp = AccSuccess ""
+                          in res @?= exp
+
 -- | n.b. Must remain at the bottom of the file for TH
 rendererTests :: TestTree
 rendererTests = $(testGroupGenerator)

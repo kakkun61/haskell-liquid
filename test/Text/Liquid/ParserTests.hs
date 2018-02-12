@@ -753,7 +753,7 @@ case_templateParser5 = parseOnly templateParser " abc{% case a %}{% when 1 %}foo
         , RawText "what{}%"
         ]
 
-case_templateParser6 = parseOnly templateParser "" @?= Left "Syntax Error > Block Parsing: Failed reading: empty"
+case_templateParser6 = parseOnly templateParser "" @?= Right []
 
 prop_templateP_is_lawful1 =
   forAll genTemplateExpr (\t -> (preview templateP (review templateP t)) == Just t)

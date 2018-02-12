@@ -360,7 +360,7 @@ block = choice [ ifLogic
 
 -- | Parse an entire template into chunks
 templateParser :: Parser [Expr]
-templateParser = manyTill1 (block <?> "Syntax Error") endOfInput
+templateParser = manyTill (block <?> "Syntax Error") endOfInput
 
 -- | Run the templateParser on input text, force partial results to terminate with Failure
 parseTemplate :: Text
